@@ -1,0 +1,68 @@
+/*Query 1 - Percent of Invoice by Genre*/
+SELECT g.name as Genre, 
+      ROUND(sum(il.unitprice * il.quantity),2) AS total,
+	  ROUND(sum(il.unitprice * il.quantity) / (SELECT SUM(TOTAL) FROM Invoice),2) as Percent
+FROM Invoice i
+INNER JOIN InvoiceLine il ON i.invoiceid = il.invoiceid
+INNER JOIN Track t ON il.trackid = t.trackid
+INNER JOIN Genre g ON t.Genreid = g.genreid 
+INNER JOIN Customer c ON c.Customerid = i.Customerid
+GROUP BY g.name
+ORDER BY 2 DESC
+LIMIT 10;
+
+/*Query 2 - Total Invoice by Year and Max Invoice Value by Month*/
+SELECT Year, Month ,MAX(total), sum(total)
+FROM (
+	SELECT STRFTIME('%Y', invoiceDate) as 'Year',
+		   STRFTIME('%m', invoiceDate) as 'Month', 
+		   sum(total) as total
+	FROM Invoice 
+	GROUP BY 1,2)
+WHERE Year in (SELECT DISTINCT STRFTIME('%Y', invoiceDate) FROM Invoice )
+group by 1;
+
+/*Query 3 -  Total invoice by Age Range Filter by 40 to 60 years*/
+SELECT Age, Genre, Total FROM(
+	SELECT CASE 
+		   WHEN Age < 50 THEN '40-50'
+		   WHEN (Age > 50 AND Age < 60) THEN '50 - 60'
+		   WHEN (Age > 60 AND Age < 70) THEN '60 - 70'
+		   WHEN (Age > 70 AND Age < 80) THEN '70 - 80'
+			ELSE '80'
+		END Age,
+		Genre,
+		SUM(t_invoice) as Total
+	 FROM(
+		SELECT (date('now') - e.BirthDate) as Age,
+				g.name as Genre,
+				ROUND( sum(il.unitprice * il.quantity),2) as t_invoice
+		FROM Invoice i
+		INNER JOIN InvoiceLine il ON i.invoiceid = il.invoiceid
+		INNER JOIN Track t ON il.trackid = t.trackid
+		INNER JOIN Genre g ON t.Genreid = g.genreid 
+		INNER JOIN Customer c ON c.Customerid = i.Customerid
+		INNER JOIN Employee e ON e.employeeId = c.SupportRepId
+		GROUP BY 1,2)
+	GROUP BY 1,2)
+WHERE AGE = '40-50';
+
+/*Query 4 - Sales Index by Country*/
+SELECT Country,
+		CASE 
+		WHEN (TOTAL > 0 AND TOTAL < 5) THEN '0'
+		WHEN (TOTAL > 5 AND TOTAL < 10) THEN '1.5'
+		WHEN (TOTAL > 10 AND TOTAL < 20) THEN '2'
+		WHEN (TOTAL > 20 AND TOTAL < 30) THEN '2.5'
+		WHEN (TOTAL > 30 AND TOTAL < 40) THEN '3'
+		WHEN (TOTAL > 40 AND TOTAL < 50) THEN '3.5'
+		WHEN (TOTAL > 50 AND TOTAL < 60) THEN '4'
+		WHEN (TOTAL > 60 AND TOTAL < 70) THEN '4.5'
+		ELSE '5'
+		END SALES_INDEX
+		FROM (
+	SELECT c.Country
+			,count(invoiceid) AS TOTAL FROM Invoice i
+	INNER JOIN Customer c ON i.Customerid = c.Customerid
+	GROUP BY c.Country order by 2 desc);
+
